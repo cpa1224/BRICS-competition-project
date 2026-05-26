@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.DS_Store
+chroma_db/
+.streamlit/secrets.toml
+*.egg-info/
+dist/
+build/
+*.spec
+OllamaSetup.exe
+GitSetup.exe
