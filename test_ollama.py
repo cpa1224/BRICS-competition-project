@@ -1,17 +1,18 @@
-import ollama
-
-def test_ollama_connection():
-    try:
-        response = ollama.chat(model="deepseek-r1:7b", messages=[
-            {"role": "user", "content": "Hello, what is natural language processing?"}
-        ])
-        print("Ollama API测试成功！")
-        print("响应内容:", response['message']['content'][:200], "...")
-        return True
-    except Exception as e:
-        print(f"Ollama连接失败: {e}")
-        print("请确保Ollama已安装并运行，且已下载deepseek-r1:7b模型")
-        return False
-
-if __name__ == "__main__":
-    test_ollama_connection()
+try:
+    from langchain_ollama import OllamaLLM
+    
+    print("=== Ollama API娴嬭瘯 ===")
+    
+    llm = OllamaLLM(model="deepseek-r1:7b")
+    
+    test_prompt = "璇风敤涓€鍙ヨ瘽浠嬬粛鑷劧璇█澶勭悊銆?
+    print(f"娴嬭瘯鎻愮ず璇? {test_prompt}")
+    
+    response = llm.invoke(test_prompt)
+    print(f"妯″瀷鍝嶅簲: {response}")
+    
+except ImportError:
+    print("閿欒锛歭angchain-ollama 妯″潡鏈畨瑁?)
+except Exception as e:
+    print(f"閿欒: {e}")
+    print("璇风‘淇漁llama鏈嶅姟宸插惎鍔紝骞朵笖宸蹭笅杞絛eepseek-r1:7b妯″瀷")
