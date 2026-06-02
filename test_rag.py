@@ -1,45 +1,69 @@
-from utils.document_loader import load_documents_from_folder
-from utils.vector_db import VectorDB
-from utils.rag_chain import RAGChain
+import os
+import sys
+from utils.document_loader import process_documents, split_text
+from utils.vector_db import create_vector_db
+from utils.rag_chain import create_rag_chain, ask_question
 
 def main():
-    print("加载文档...")
-    documents = load_documents_from_folder("./docs")
+    print("=== RAG闂瓟绯荤粺娴嬭瘯 ===")
     
-    if not documents:
-        print("未找到任何文档，请先在docs目录中添加PDF或DOCX文件")
-        return
+    documents_folder = "./docs"
+    persist_directory = "./chroma_db"
     
-    print(f"成功加载 {len(documents)} 个文档")
+    if not os.path.exists(documents_folder):
+        print(f"閿欒锛氭枃妗ｆ枃浠跺す {documents_folder} 涓嶅瓨鍦紒")
+        sys.exit(1)
     
-    print("初始化向量数据库...")
-    vector_db = VectorDB(use_ollama=False)
-    vector_db.add_documents(documents)
+    print(f"姝ｅ湪澶勭悊鏂囨。...")
+    all_text, file_count = process_documents(documents_folder)
+    print(f"宸插鐞?{file_count} 涓枃妗?)
     
-    print(f"向量数据库中共有 {vector_db.get_collection_stats()} 个文本块")
+    if not all_text:
+        print("閿欒锛氭湭鎵惧埌浠讳綍鏈夋晥鏂囨。鍐呭锛?)
+        sys.exit(1)
     
-    print("初始化RAG问答链...")
-    retriever = vector_db.get_retriever(k=3)
-    rag_chain = RAGChain(retriever, model_name="deepseek-r1:7b")
+    print(f"\n姝ｅ湪鍒嗗壊鏂囨湰...")
+    chunks = split_text(all_text, chunk_size=1000, chunk_overlap=200)
+    print(f"鏂囨湰宸插垎鍓蹭负 {len(chunks)} 涓潡")
     
+    print(f"\n姝ｅ湪鍒涘缓鍚戦噺鏁版嵁搴?..")
+    vectordb = create_vector_db(chunks, persist_directory)
+    print("鍚戦噺鏁版嵁搴撳垱寤哄畬鎴?)
+    
+    print(f"\n姝ｅ湪鍒濆鍖朢AG闂瓟閾?..")
+    chain = create_rag_chain(vectordb)
+    print("RAG闂瓟閾惧垵濮嬪寲瀹屾垚")
+    
+    print("\n=== 娴嬭瘯闂瓟 ===")
     test_questions = [
-        "什么是自然语言处理？",
-        "Transformer模型的主要特点是什么？",
-        "BERT模型是如何预训练的？",
-        "词嵌入技术有哪些应用？",
-        "文本分类的常用方法有哪些？",
-        "今天天气怎么样？",
-        "如何制作蛋糕？"
+        "浠€涔堟槸鑷劧璇█澶勭悊锛?,
+        "Transformer妯″瀷鐨勪富瑕佺壒鐐规槸浠€涔堬紵",
+        "浠€涔堟槸璇嶅祵鍏ワ紵",
+        "BERT妯″瀷鏈変粈涔堝垱鏂帮紵",
+        "鏂囨湰鍒嗙被鐨勫父鐢ㄦ柟娉曟湁鍝簺锛?,
+        "浜哄伐鏅鸿兘鐨勬湭鏉ュ彂灞曡秼鍔挎槸浠€涔堬紵",
+        "閲忓瓙璁＄畻鐨勫師鐞嗘槸浠€涔堬紵"
     ]
     
-    print("\n开始测试问答效果：")
-    for question in test_questions:
-        print(f"\n问题：{question}")
+    for i, question in enumerate(test_questions, 1):
+        print(f"\n闂 {i}: {question}")
         try:
-            answer = rag_chain.ask(question)
-            print(f"回答：{answer}")
+            answer = ask_question(chain, question)
+            print(f"鍥炵瓟: {answer}")
         except Exception as e:
-            print(f"回答失败：{e}")
+            print(f"鍥炵瓟澶辫触: {e}")
+    
+    print("\n=== 浜や簰寮忛棶绛?===")
+    print("杈撳叆 'quit' 鎴?'exit' 閫€鍑?)
+    while True:
+        try:
+            question = input("\n璇疯緭鍏ラ棶棰? ")
+            if question.lower() in ["quit", "exit"]:
+                break
+            answer = ask_question(chain, question)
+            print(f"鍥炵瓟: {answer}")
+        except Exception as e:
+            print(f"鍥炵瓟澶辫触: {e}")
 
 if __name__ == "__main__":
     main()
