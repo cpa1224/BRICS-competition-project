@@ -1,56 +1,83 @@
-import os
-import chromadb
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import OllamaEmbeddings
+import re
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.embeddings import SentenceTransformerEmbeddings
 
-class VectorDB:
-    def __init__(self, persist_dir="./chroma_db", use_ollama=True):
-        self.persist_dir = persist_dir
-        self.use_ollama = use_ollama
+def tokenize_chinese(text):
+    words = re.findall(r'[\u4e00-\u9fa5]{1,2}|[a-zA-Z]+|\d+', text.lower())
+    return set(words)
+
+class SimpleVectorDB:
+    def __init__(self):
+        self.chunks = []
+        self.chunk_tokens = []
+    
+    def add_texts(self, texts):
+        self.chunks = texts
+        self.chunk_tokens = [tokenize_chinese(text) for text in texts]
+    
+    def similarity_search(self, query, k=3):
+        if not self.chunks:
+            return []
         
-        if self.use_ollama:
-            self.embeddings = OllamaEmbeddings(model="nomic-embed-text")
-        else:
-            self.embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+        query_tokens = tokenize_chinese(query)
+        if not query_tokens:
+            return []
         
-        self.client = chromadb.PersistentClient(path=self.persist_dir)
-        self.collection = self.client.get_or_create_collection(name="nlp_docs")
-    
-    def split_text(self, text, chunk_size=1000, chunk_overlap=200):
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            length_function=len
-        )
-        chunks = splitter.split_text(text)
-        return chunks
-    
-    def add_documents(self, documents):
-        for doc in documents:
-            chunks = self.split_text(doc["content"])
-            for i, chunk in enumerate(chunks):
-                self.collection.add(
-                    documents=[chunk],
-                    metadatas=[{"filename": doc["filename"], "chunk_index": i}],
-                    ids=[f"{doc['filename']}_{i}"]
-                )
-    
-    def search(self, query, k=3):
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=k
-        )
+        scores = []
+        for i, chunk_tokens in enumerate(self.chunk_tokens):
+            if chunk_tokens:
+                intersection = query_tokens & chunk_tokens
+                if len(chunk_tokens) > 0:
+                    score = len(intersection) / len(query_tokens)
+                else:
+                    score = 0
+                scores.append((i, score))
+        
+        scores.sort(key=lambda x: x[1], reverse=True)
+        
+        results = []
+        for idx, score in scores[:k]:
+            if score > 0:
+                results.append({"text": self.chunks[idx], "similarity": score})
         return results
     
-    def get_retriever(self, k=3):
-        vectorstore = Chroma(
-            client=self.client,
-            collection_name="nlp_docs",
-            embedding_function=self.embeddings
-        )
-        return vectorstore.as_retriever(search_kwargs={"k": k})
+    def as_retriever(self, search_kwargs=None):
+        return SimpleRetriever(self, search_kwargs or {"k": 3})
+
+class SimpleRetriever:
+    def __init__(self, vectordb, search_kwargs):
+        self.vectordb = vectordb
+        self.k = search_kwargs.get("k", 3)
     
-    def get_collection_stats(self):
-        return self.collection.count()
+    def get_relevant_documents(self, query):
+        results = self.vectordb.similarity_search(query, k=self.k)
+        return [SimpleDocument(r["text"]) for r in results]
+
+class SimpleDocument:
+    def __init__(self, page_content):
+        self.page_content = page_content
+
+def create_vector_db(chunks, persist_directory="./chroma_db"):
+    try:
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        vectordb = Chroma.from_texts(
+            texts=chunks,
+            embedding=embeddings,
+            persist_directory=persist_directory
+        )
+        vectordb.persist()
+        return vectordb
+    except Exception as e:
+        print(f"Failed to create Chroma DB: {e}")
+        vectordb = SimpleVectorDB()
+        vectordb.add_texts(chunks)
+        return vectordb
+
+def load_vector_db(persist_directory="./chroma_db"):
+    try:
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        vectordb = Chroma(persist_directory=persist_directory, embedding_function=embeddings)
+        return vectordb
+    except Exception as e:
+        print(f"Failed to load Chroma DB: {e}")
+        return SimpleVectorDB()
