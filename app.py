@@ -1,197 +1,100 @@
 import streamlit as st
 import os
-from PyPDF2 import PdfReader
-from docx import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import SentenceTransformerEmbeddings
-from langchain.vectorstores import Chroma
-from langchain.llms import Ollama
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
-from langchain.prompts import PromptTemplate
+import tempfile
+from utils.document_loader import load_document, split_text
+from utils.vector_db import create_vector_db, load_vector_db
+from utils.rag_chain import create_rag_chain, ask_question
 
-def load_pdf(file):
-    text = ""
-    reader = PdfReader(file)
-    for page in reader.pages:
-        text += page.extract_text()
-    return text
-
-def load_docx(file):
-    doc = Document(file)
-    text = ""
-    for para in doc.paragraphs:
-        text += para.text + "\n"
-    return text
-
-def load_document(file):
-    filename = file.name
-    ext = os.path.splitext(filename)[1].lower()
-    if ext == '.pdf':
-        return load_pdf(file)
-    elif ext == '.docx':
-        return load_docx(file)
-    else:
-        raise ValueError(f"Unsupported file type: {ext}")
-
-def split_text(text, chunk_size=1000, chunk_overlap=200):
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        length_function=len
-    )
-    chunks = splitter.split_text(text)
-    return chunks
-
-def init_vector_db():
-    embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-    persist_dir = "./chroma_db"
-    
-    if os.path.exists(persist_dir):
-        vectorstore = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
-    else:
-        vectorstore = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
-    
-    return vectorstore
-
-def init_rag_chain(retriever):
-    llm = Ollama(model="deepseek-r1:7b")
-    
-    memory = ConversationBufferMemory(
-        memory_key="chat_history",
-        return_messages=True
-    )
-    
-    prompt_template = """
-    你是一个专业的问答助手。请基于提供的参考文档回答用户问题。
-    
-    参考文档：
-    {context}
-    
-    请严格按照以下规则回答：
-    1. 只使用参考文档中的信息进行回答
-    2. 如果文档中没有相关信息，请明确回答"文档中未找到相关答案"
-    3. 如果文档中有相关信息，请基于文档内容给出详细回答
-    4. 回答要简洁明了，不要添加无关内容
-    
-    问题：{question}
-    
-    回答：
-    """
-    
-    prompt = PromptTemplate(
-        template=prompt_template,
-        input_variables=["context", "question"]
-    )
-    
-    chain = ConversationalRetrievalChain.from_llm(
-        llm=llm,
-        retriever=retriever,
-        memory=memory,
-        combine_docs_chain_kwargs={"prompt": prompt}
-    )
-    
-    return chain
-
-def main():
-    st.set_page_config(page_title="RAG问答系统", page_icon="📚", layout="wide")
-    
-    st.title("📚 RAG问答系统")
-    
-    if "vectorstore" not in st.session_state:
-        st.session_state.vectorstore = init_vector_db()
-    
-    if "rag_chain" not in st.session_state:
-        retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 3})
-        st.session_state.rag_chain = init_rag_chain(retriever)
-    
+def init_session_state():
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
+    if "vectordb" not in st.session_state:
+        st.session_state.vectordb = None
+    if "chain" not in st.session_state:
+        st.session_state.chain = None
+    if "document_count" not in st.session_state:
+        st.session_state.document_count = 0
+    if "chunk_count" not in st.session_state:
+        st.session_state.chunk_count = 0
+
+def save_uploaded_file(uploaded_file):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as temp_file:
+        temp_file.write(uploaded_file.read())
+        return temp_file.name
+
+def main():
+    init_session_state()
     
-    if "uploaded_files" not in st.session_state:
-        st.session_state.uploaded_files = []
+    st.set_page_config(page_title="RAG鏅鸿兘闂瓟绯荤粺", page_icon="馃摎", layout="wide")
     
-    col1, col2 = st.columns([1, 2])
+    st.title("馃摎 RAG鏅鸿兘闂瓟绯荤粺")
+    st.sidebar.title("鐭ヨ瘑搴撶鐞?)
     
-    with col1:
-        st.header("文档上传")
-        uploaded_files = st.file_uploader(
-            "选择PDF或DOCX文件",
-            type=["pdf", "docx"],
-            accept_multiple_files=True
-        )
+    with st.sidebar:
+        uploaded_files = st.file_uploader("涓婁紶鏂囨。", type=["pdf", "docx", "txt"], accept_multiple_files=True)
         
-        if uploaded_files:
-            for file in uploaded_files:
-                if file.name not in st.session_state.uploaded_files:
-                    st.session_state.uploaded_files.append(file.name)
-        
-        if st.button("🔄 构建知识库"):
-            if uploaded_files:
-                with st.spinner("正在处理文档..."):
-                    for file in uploaded_files:
-                        try:
-                            text = load_document(file)
-                            chunks = split_text(text)
-                            st.session_state.vectorstore.add_texts(chunks)
-                            st.success(f"✅ {file.name} 已成功处理")
-                        except Exception as e:
-                            st.error(f"❌ 处理 {file.name} 失败: {e}")
+        if st.button("鏋勫缓鐭ヨ瘑搴?):
+            if not uploaded_files:
+                st.warning("璇峰厛涓婁紶鏂囨。锛?)
+            else:
+                with st.spinner("姝ｅ湪澶勭悊鏂囨。..."):
+                    all_text = ""
+                    for uploaded_file in uploaded_files:
+                        temp_path = save_uploaded_file(uploaded_file)
+                        text = load_document(temp_path)
+                        if text:
+                            all_text += text + "\n\n"
+                        os.unlink(temp_path)
                     
-                    retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 3})
-                    st.session_state.rag_chain = init_rag_chain(retriever)
-                    st.success("🎉 知识库构建完成！")
-            else:
-                st.warning("请先上传文档")
-        
-        st.header("知识库状态")
-        try:
-            collection_stats = st.session_state.vectorstore._collection.count()
-            st.info(f"📊 当前知识库中文本块数量: {collection_stats}")
-            st.info(f"📁 已上传文档数量: {len(st.session_state.uploaded_files)}")
-        except Exception as e:
-            st.info("📊 当前知识库中文本块数量: 0")
-        
-        if st.button("🗑️ 清空知识库"):
-            import shutil
-            if os.path.exists("./chroma_db"):
-                shutil.rmtree("./chroma_db")
-            st.session_state.vectorstore = init_vector_db()
-            retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 3})
-            st.session_state.rag_chain = init_rag_chain(retriever)
-            st.session_state.chat_history = []
-            st.session_state.uploaded_files = []
-            st.success("✅ 知识库已清空")
+                    if not all_text:
+                        st.error("鏈彁鍙栧埌鏈夋晥鏂囨湰鍐呭锛?)
+                    else:
+                        chunks = split_text(all_text, chunk_size=1000, chunk_overlap=200)
+                        st.session_state.chunk_count = len(chunks)
+                        st.session_state.document_count = len(uploaded_files)
+                        
+                        persist_dir = "./chroma_db"
+                        if os.path.exists(persist_dir):
+                            import shutil
+                            shutil.rmtree(persist_dir)
+                        
+                        st.session_state.vectordb = create_vector_db(chunks, persist_dir)
+                        st.session_state.chain = create_rag_chain(st.session_state.vectordb)
+                        
+                        if st.session_state.chain:
+                            st.success(f"鐭ヨ瘑搴撴瀯寤哄畬鎴愶紒\n鏂囨。鏁? {st.session_state.document_count}\n鏂囨湰鍧楁暟: {st.session_state.chunk_count}")
     
-    with col2:
-        st.header("问答交互")
-        
-        for message in st.session_state.chat_history:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-        
-        user_input = st.text_input("请输入您的问题：")
-        
-        if st.button("提问"):
-            if user_input.strip():
-                with st.spinner("正在思考..."):
-                    try:
-                        answer = st.session_state.rag_chain({"question": user_input})
-                        
-                        st.session_state.chat_history.append({
-                            "role": "user",
-                            "content": user_input
-                        })
-                        st.session_state.chat_history.append({
-                            "role": "assistant",
-                            "content": answer["answer"]
-                        })
-                        
-                        st.experimental_rerun()
-                    except Exception as e:
-                        st.error(f"问答失败: {e}")
-            else:
-                st.warning("请输入问题")
+    st.sidebar.subheader("鐭ヨ瘑搴撶姸鎬?)
+    st.sidebar.info(f"宸插姞杞芥枃妗? {st.session_state.document_count} 涓猏n鏂囨湰鍧楁暟: {st.session_state.chunk_count} 涓?)
+    
+    st.subheader("闂瓟浜や簰")
+    
+    if st.session_state.chat_history:
+        for i, (question, answer) in enumerate(st.session_state.chat_history):
+            with st.chat_message("user"):
+                st.write(f"**鐢ㄦ埛:** {question}")
+            with st.chat_message("assistant"):
+                st.write(f"**鍔╂墜:** {answer}")
+    
+    user_question = st.text_input("璇疯緭鍏ユ偍鐨勯棶棰?", key="question_input")
+    
+    if st.button("鎻愰棶"):
+        if not user_question.strip():
+            st.warning("璇疯緭鍏ラ棶棰橈紒")
+        elif not st.session_state.chain:
+            st.warning("璇峰厛鏋勫缓鐭ヨ瘑搴擄紒")
+        else:
+            with st.spinner("姝ｅ湪鎬濊€?.."):
+                try:
+                    answer = ask_question(st.session_state.chain, user_question)
+                    st.session_state.chat_history.append((user_question, answer))
+                    
+                    with st.chat_message("user"):
+                        st.write(f"**鐢ㄦ埛:** {user_question}")
+                    with st.chat_message("assistant"):
+                        st.write(f"**鍔╂墜:** {answer}")
+                except Exception as e:
+                    st.error(f"鍥炵瓟澶辫触: {e}")
 
 if __name__ == "__main__":
     main()
