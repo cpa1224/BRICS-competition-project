@@ -5,9 +5,37 @@ from langchain.prompts import PromptTemplate
 
 try:
     from langchain_ollama import OllamaLLM
+    import requests
     OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
+
+def check_ollama_status():
+    """检查Ollama服务是否正在运行"""
+    if not OLLAMA_AVAILABLE:
+        return False, "langchain-ollama 未安装"
+    try:
+        response = requests.get("http://localhost:11434/api/tags", timeout=5)
+        if response.status_code == 200:
+            return True, "Ollama服务正常运行"
+        return False, f"Ollama服务返回错误: {response.status_code}"
+    except requests.exceptions.ConnectionError:
+        return False, "无法连接到Ollama服务，请确保Ollama已启动"
+    except Exception as e:
+        return False, f"检查Ollama状态失败: {str(e)}"
+
+def get_available_models():
+    """获取已下载的Ollama模型列表"""
+    if not OLLAMA_AVAILABLE:
+        return []
+    try:
+        response = requests.get("http://localhost:11434/api/tags", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            return [model["name"] for model in data.get("models", [])]
+        return []
+    except Exception as e:
+        return []
 
 class SimpleQA:
     def __init__(self, vectordb):
@@ -110,12 +138,13 @@ def create_rag_chain(vectordb, model_name="deepseek-r1:7b"):
                 combine_docs_chain_kwargs={"prompt": prompt},
                 verbose=True
             )
-            return chain
+            return chain, f"已使用Ollama模型: {model_name}"
         except Exception as e:
-            print(f"Failed to create Ollama chain: {e}")
-            return SimpleQA(vectordb)
+            error_msg = f"Ollama模型加载失败: {str(e)}"
+            print(error_msg)
+            return SimpleQA(vectordb), error_msg
     else:
-        return SimpleQA(vectordb)
+        return SimpleQA(vectordb), "未安装langchain-ollama，使用简易问答模式"
 
 def ask_question(chain, question):
     if hasattr(chain, "get_answer"):
