@@ -19,7 +19,7 @@ class SimpleQA:
         docs = retriever.get_relevant_documents(question)
         
         if not docs:
-            return "鏂囨。涓湭鎵惧埌鐩稿叧绛旀"
+            return "文档中未找到相关答案"
         
         context = "\n\n".join([doc.page_content for doc in docs])
         answer = self.extract_answer(question, context)
@@ -30,38 +30,38 @@ class SimpleQA:
     def extract_answer(self, question, context):
         question_lower = question.lower()
         
-        if "浠€涔堟槸" in question or "瀹氫箟" in question or "姒傚康" in question:
-            pattern = r"(浠€涔堟槸\s*[\u4e00-\u9fa5]+|[\u4e00-\u9fa5]+[\u7684]?瀹氫箟?[\uFF1A:]?\s*[^銆傦紵锛乚*[銆傦紵锛乚)"
+        if "什么是" in question or "定义" in question or "概念" in question:
+            pattern = r"(什么是\s*[\u4e00-\u9fa5]+|[\u4e00-\u9fa5]+[\u7684]?定义?[\uFF1A:]?\s*[^。！？]*[。！？])"
             match = re.search(pattern, context)
             if match:
                 return match.group(0).strip()
         
-        if "鐗圭偣" in question or "鐗瑰緛" in question or "浼樺娍" in question:
-            pattern = r"(鐗圭偣|鐗瑰緛|浼樺娍|涓昏鐗圭偣|涓昏鐗瑰緛)[\uFF1A:]?\s*[^銆傦紵锛乚*[銆傦紵锛乚"
+        if "特点" in question or "特征" in question or "优势" in question:
+            pattern = r"(特点|特征|优势|主要特点|主要特征)[\uFF1A:]?\s*[^。！？]*[。！？]"
             match = re.search(pattern, context)
             if match:
                 return match.group(0).strip()
         
-        if "鏂规硶" in question or "鎶€鏈? in question or "绠楁硶" in question:
-            pattern = r"(鏂规硶|鎶€鏈瘄绠楁硶|姝ラ|娴佺▼)[\uFF1A:]?\s*[^銆傦紵锛乚*[銆傦紵锛乚"
+        if "方法" in question or "技术" in question or "算法" in question:
+            pattern = r"(方法|技术|算法|步骤|流程)[\uFF1A:]?\s*[^。！？]*[。！？]"
             match = re.search(pattern, context)
             if match:
                 return match.group(0).strip()
         
-        sentences = re.split(r'[銆傦紒锛焆', context)
-        keywords = ["鑷劧璇█澶勭悊", "NLP", "Transformer", "BERT", "璇嶅祵鍏?, "鏂囨湰鍒嗙被", "娣卞害瀛︿範", "鏈哄櫒瀛︿範"]
+        sentences = re.split(r'[。！？]', context)
+        keywords = ["自然语言处理", "NLP", "Transformer", "BERT", "词嵌入", "文本分类", "深度学习", "机器学习"]
         
         for sentence in sentences:
             sentence_lower = sentence.lower()
-            question_words = question_lower.replace("浠€涔?, "").replace("鏄?, "").replace("锛?, "").strip()
+            question_words = question_lower.replace("什么", "").replace("是", "").replace("？", "").strip()
             if question_words and question_words in sentence_lower:
-                return sentence.strip() + "銆?
+                return sentence.strip() + "。"
         
         for keyword in keywords:
             if keyword in question:
                 for sentence in sentences:
                     if keyword in sentence:
-                        return sentence.strip() + "銆?
+                        return sentence.strip() + "。"
         
         if len(context) > 500:
             return context[:500] + "..."
@@ -86,7 +86,7 @@ def create_rag_chain(vectordb, model_name="deepseek-r1:7b"):
 
             Guidelines:
             1. Answer the question strictly based on the information in the reference documents.
-            2. If the documents do not contain relevant information to answer the question, clearly state "鏂囨。涓湭鎵惧埌鐩稿叧绛旀".
+            2. If the documents do not contain relevant information to answer the question, clearly state "文档中未找到相关答案".
             3. Do not use external knowledge outside of the provided documents.
             4. Keep the answer concise and relevant.
 
@@ -122,4 +122,4 @@ def ask_question(chain, question):
         return chain.get_answer(question)
     else:
         result = chain({"question": question})
-        return result.get("answer", "鏂囨。涓湭鎵惧埌鐩稿叧绛旀")
+        return result.get("answer", "文档中未找到相关答案")

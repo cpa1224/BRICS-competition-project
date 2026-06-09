@@ -5,65 +5,65 @@ from utils.vector_db import create_vector_db
 from utils.rag_chain import create_rag_chain, ask_question
 
 def main():
-    print("=== RAG闂瓟绯荤粺娴嬭瘯 ===")
+    print("=== RAG问答系统测试 ===")
     
     documents_folder = "./docs"
     persist_directory = "./chroma_db"
     
     if not os.path.exists(documents_folder):
-        print(f"閿欒锛氭枃妗ｆ枃浠跺す {documents_folder} 涓嶅瓨鍦紒")
+        print(f"错误：文档文件夹 {documents_folder} 不存在！")
         sys.exit(1)
     
-    print(f"姝ｅ湪澶勭悊鏂囨。...")
+    print(f"正在处理文档...")
     all_text, file_count = process_documents(documents_folder)
-    print(f"宸插鐞?{file_count} 涓枃妗?)
+    print(f"已处理 {file_count} 个文档")
     
     if not all_text:
-        print("閿欒锛氭湭鎵惧埌浠讳綍鏈夋晥鏂囨。鍐呭锛?)
+        print("错误：未找到任何有效文档内容！")
         sys.exit(1)
     
-    print(f"\n姝ｅ湪鍒嗗壊鏂囨湰...")
+    print(f"\n正在分割文本...")
     chunks = split_text(all_text, chunk_size=1000, chunk_overlap=200)
-    print(f"鏂囨湰宸插垎鍓蹭负 {len(chunks)} 涓潡")
+    print(f"文本已分割为 {len(chunks)} 个块")
     
-    print(f"\n姝ｅ湪鍒涘缓鍚戦噺鏁版嵁搴?..")
+    print(f"\n正在创建向量数据库...")
     vectordb = create_vector_db(chunks, persist_directory)
-    print("鍚戦噺鏁版嵁搴撳垱寤哄畬鎴?)
+    print("向量数据库创建完成")
     
-    print(f"\n姝ｅ湪鍒濆鍖朢AG闂瓟閾?..")
+    print(f"\n正在初始化RAG问答链...")
     chain = create_rag_chain(vectordb)
-    print("RAG闂瓟閾惧垵濮嬪寲瀹屾垚")
+    print("RAG问答链初始化完成")
     
-    print("\n=== 娴嬭瘯闂瓟 ===")
+    print("\n=== 测试问答 ===")
     test_questions = [
-        "浠€涔堟槸鑷劧璇█澶勭悊锛?,
-        "Transformer妯″瀷鐨勪富瑕佺壒鐐规槸浠€涔堬紵",
-        "浠€涔堟槸璇嶅祵鍏ワ紵",
-        "BERT妯″瀷鏈変粈涔堝垱鏂帮紵",
-        "鏂囨湰鍒嗙被鐨勫父鐢ㄦ柟娉曟湁鍝簺锛?,
-        "浜哄伐鏅鸿兘鐨勬湭鏉ュ彂灞曡秼鍔挎槸浠€涔堬紵",
-        "閲忓瓙璁＄畻鐨勫師鐞嗘槸浠€涔堬紵"
+        "什么是自然语言处理？",
+        "Transformer模型的主要特点是什么？",
+        "什么是词嵌入？",
+        "BERT模型有什么创新？",
+        "文本分类的常用方法有哪些？",
+        "人工智能的未来发展趋势是什么？",
+        "量子计算的原理是什么？"
     ]
     
     for i, question in enumerate(test_questions, 1):
-        print(f"\n闂 {i}: {question}")
+        print(f"\n问题 {i}: {question}")
         try:
             answer = ask_question(chain, question)
-            print(f"鍥炵瓟: {answer}")
+            print(f"回答: {answer}")
         except Exception as e:
-            print(f"鍥炵瓟澶辫触: {e}")
+            print(f"回答错误: {e}")
     
-    print("\n=== 浜や簰寮忛棶绛?===")
-    print("杈撳叆 'quit' 鎴?'exit' 閫€鍑?)
+    print("\n=== 交互式问答 ===")
+    print("输入 'quit' 或 'exit' 退出")
     while True:
         try:
-            question = input("\n璇疯緭鍏ラ棶棰? ")
+            question = input("\n请输入问题: ")
             if question.lower() in ["quit", "exit"]:
                 break
             answer = ask_question(chain, question)
-            print(f"鍥炵瓟: {answer}")
+            print(f"回答: {answer}")
         except Exception as e:
-            print(f"鍥炵瓟澶辫触: {e}")
+            print(f"回答错误: {e}")
 
 if __name__ == "__main__":
     main()
