@@ -1,93 +1,130 @@
-# RAG鏅鸿兘闂瓟绯荤粺
+# RAG智能问答系统
 
-鍩轰簬Ollama鏈湴澶фā鍨嬨€丩angChain妗嗘灦鍜孲treamlit鏋勫缓鐨勬櫤鑳介棶绛旂郴缁燂紝鑳藉"瀛︿範"鎸囧畾鏂囨。骞跺洖绛旂浉鍏抽棶棰樸€?
-## 椤圭洰鍔熻兘
+基于Ollama本地大模型、LangChain框架和Streamlit构建的智能问答系统，能够"学习"指定文档并回答相关问题。
 
-- 鏀寔涓婁紶PDF銆丏OCX銆乀XT绛夋牸寮忔枃妗?- 鑷姩杩涜鏂囨。瑙ｆ瀽銆佹枃鏈垎鍧楀拰鍚戦噺鍖?- 浣跨敤Chroma鍚戦噺鏁版嵁搴撳瓨鍌ㄦ枃妗ｅ悜閲?- 鍩轰簬妫€绱㈠寮虹敓鎴愶紙RAG锛夋妧鏈繘琛岄棶绛?- 鏀寔澶氳疆瀵硅瘽锛屽叿鏈変細璇濊蹇嗗姛鑳?- 瀵规棤鍏抽棶棰樿兘姝ｇ‘鎷掔瓟
+## 项目功能
 
-## 鐜瑕佹眰
+- 支持上传PDF、DOCX、TXT等格式文档
+- 自动进行文档解析、文本分割和向量索引
+- 使用Chroma向量数据库存储文档向量
+- 基于检索增强生成(RAG)技术进行问答
+- 支持多轮对话，具有会话记忆功能
+- 对无关问题能正确拒答
+
+## 环境要求
 
 - Python 3.8+
-- Ollama锛堢敤浜庤繍琛屾湰鍦板ぇ妯″瀷锛?- 鑷冲皯8GB鍐呭瓨锛堟帹鑽?6GB浠ヤ笂锛?
-## 瀹夎姝ラ
+- Ollama（用于运行本地大模型）
+- 至少8GB内存（推荐16GB以上）
 
-### 1. 瀹夎Ollama
+## 安装步骤
 
-璁块棶 [Ollama瀹樻柟缃戠珯](https://ollama.com/) 涓嬭浇骞跺畨瑁匫llama銆?
-### 2. 涓嬭浇澶фā鍨?
+### 1. 安装Ollama
+
+访问 [Ollama官方网站](https://ollama.com/) 下载并安装Ollama。
+
+### 2. 下载大模型
+
 ```bash
-# 涓嬭浇deepseek-r1:7b妯″瀷锛堟帹鑽愶級
+# 下载deepseek-r1:7b模型（推荐）
 ollama pull deepseek-r1:7b
 
-# 鎴栬€呬笅杞絨wen2:7b妯″瀷
+# 或者下载qwen2:7b模型
 ollama pull qwen2:7b
 
-# 涓嬭浇宓屽叆妯″瀷
+# 下载嵌入模型
 ollama pull nomic-embed-text
 ```
 
-### 3. 瀹夎Python渚濊禆
+### 3. 安装Python依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 浣跨敤璇存槑
+## 使用说明
 
-### 杩愯Web搴旂敤
+### 运行Web应用
 
 ```bash
-streamlit run streamlit_app.py
+streamlit run app.py
 ```
 
-### 浣跨敤娴佺▼
+### 使用流程
 
-1. 鍦ㄦ祻瑙堝櫒涓墦寮€搴旂敤锛堥€氬父鏄?http://localhost:8501锛?2. 鍦ㄤ晶杈规爮涓婁紶PDF銆丏OCX鎴朤XT鏍煎紡鐨勬枃妗?3. 鐐瑰嚮"鏋勫缓鐭ヨ瘑搴?鎸夐挳锛岀瓑寰呮枃妗ｅ鐞嗗畬鎴?4. 鍦ㄩ棶绛斾氦浜掑尯杈撳叆闂锛岀偣鍑?鎻愰棶"鎸夐挳鑾峰彇绛旀
-5. 鏀寔澶氳疆瀵硅瘽锛岀郴缁熶細璁颁綇瀵硅瘽鍘嗗彶
+1. 在浏览器中打开应用（通常是 http://localhost:8501）
+2. 在左侧面板上传PDF、DOCX或TXT格式的文档
+3. 点击"构建知识库"按钮，等待文档处理完成
+4. 在问答交互区输入问题，点击"提问"按钮获取答案
+5. 支持多轮对话，系统会保存对话历史
 
-### 鍛戒护琛屾祴璇?
+### 运行测试脚本
+
 ```bash
 python test_rag.py
 ```
 
-## 鍏抽敭鎶€鏈偣
+## 核心技术点
 
-### RAG娴佺▼
+### RAG流程
 
-1. **鏂囨。鍔犺浇**锛氭敮鎸丳DF銆丏OCX銆乀XT绛夋牸寮忔枃妗ｇ殑璇诲彇
-2. **鏂囨湰鍒嗗潡**锛氫娇鐢≧ecursiveCharacterTextSplitter杩涜鍒嗗潡锛坈hunk_size=1000, chunk_overlap=200锛?3. **鍚戦噺鍖?*锛氫娇鐢∣llama鐨刵omic-embed-text妯″瀷灏嗘枃鏈潡杞崲涓哄悜閲?4. **鍚戦噺瀛樺偍**锛氫娇鐢–hroma鍚戦噺鏁版嵁搴撳瓨鍌ㄥ拰妫€绱㈠悜閲?5. **闂瓟鐢熸垚**锛氫娇鐢–onversationalRetrievalChain杩炴帴妫€绱㈠櫒鍜屽ぇ妯″瀷
+1. **文档加载**：支持PDF、DOCX、TXT等格式文档的读取
+2. **文本分割**：使用RecursiveCharacterTextSplitter进行分割（chunk_size=1000, chunk_overlap=200）
+3. **向量索引**：使用llama的nomic-embed-text模型将文本块转换为向量
+4. **向量存储**：使用Chroma向量数据库存储和检索向量
+5. **问答生成**：使用ConversationalRetrievalChain连接检索器和大模型
 
-### 鎵€鐢ㄦā鍨?
-- **澶ц瑷€妯″瀷**锛歞eepseek-r1:7b 鎴?qwen2:7b
-- **宓屽叆妯″瀷**锛歯omic-embed-text
+### 所用模型
 
-### 绯荤粺鎻愮ず璇嶈璁?
-绯荤粺鎻愮ず璇嶈姹傛ā鍨嬶細
-- 涓ユ牸鍩轰簬鎻愪緵鐨勫弬鑰冩枃妗ｅ洖绛旈棶棰?- 鑻ユ枃妗ｄ腑娌℃湁鐩稿叧淇℃伅锛屾槑纭"鏂囨。涓湭鎵惧埌鐩稿叧绛旀"
-- 涓嶄娇鐢ㄦ枃妗ｅ鐨勭煡璇?- 淇濇寔鍥炵瓟绠€娲佺浉鍏?
-## 椤圭洰缁撴瀯
+- **大语言模型**：deepseek-r1:7b 或 qwen2:7b
+- **嵌入模型**：nomic-embed-text
+
+### 系统提示词设计要求
+
+系统提示词要求模型：
+- 基于提供的参考文档回答问题
+- 若文档中没有相关信息，明确说"文档中未找到相关答案"
+- 不使用文档外的知识
+- 保持回答简洁相关
+
+## 项目结构
 
 ```
-RAG-QA-System/
-鈹溾攢鈹€ streamlit_app.py      # Streamlit Web搴旂敤涓绘枃浠?鈹溾攢鈹€ document_processor.py # 鏂囨。澶勭悊妯″潡
-鈹溾攢鈹€ rag_chain.py          # RAG闂瓟閾炬ā鍧?鈹溾攢鈹€ test_rag.py           # 鍛戒护琛屾祴璇曡剼鏈?鈹溾攢鈹€ requirements.txt      # 渚濊禆鍖呭垪琛?鈹溾攢鈹€ .gitignore            # Git蹇界暐閰嶇疆
-鈹斺攢鈹€ documents/            # 绀轰緥鏂囨。鐩綍
-    鈹溾攢鈹€ nlp_introduction.txt
-    鈹溾攢鈹€ transformer.txt
-    鈹溾攢鈹€ word_embedding.txt
-    鈹溾攢鈹€ bert.txt
-    鈹斺攢鈹€ text_classification.txt
+BRICS-competition-project/
+├── app.py                 # Streamlit Web应用主文件
+├── test_rag.py           # 命令行测试脚本
+├── test_ollama.py        # Ollama连接测试
+├── requirements.txt      # 依赖列表
+├── .gitignore            # Git忽略配置
+├── docs/                 # 示例文档目录
+│   ├── nlp_introduction.txt
+│   ├── transformer.txt
+│   ├── word_embedding.txt
+│   ├── bert.txt
+│   └── text_classification.txt
+└── utils/                # 工具模块
+    ├── document_loader.py # 文档处理模块
+    ├── vector_db.py       # 向量数据库模块
+    └── rag_chain.py       # RAG问答链模块
 ```
 
-## 宸茬煡闂涓庢敼杩涙柟鍚?
-### 宸茬煡闂
-- Ollama鏈嶅姟闇€瑕侀鍏堝惎鍔?- 妯″瀷涓嬭浇闇€瑕佷竴瀹氭椂闂村拰缃戠粶甯﹀
-- 棣栨鏋勫缓鐭ヨ瘑搴撳彲鑳介渶瑕佽緝闀挎椂闂?
-### 鏀硅繘鏂瑰悜
-- 鏀寔鏇村鏂囨。鏍煎紡锛堝PPT銆丒xcel锛?- 娣诲姞鏂囨。绠＄悊鍔熻兘锛堝垹闄ゃ€佹洿鏂版枃妗ｏ級
-- 鏀寔鎵归噺涓婁紶鏂囨。
-- 娣诲姞澶滈棿妯″紡
-- 鏀寔瀵煎嚭闂瓟璁板綍
-- 浼樺寲闀挎枃鏈鐞嗚兘鍔?
-## 璁稿彲璇?
+## 已知问题与改进方向
+
+### 已知问题
+
+- Ollama服务需要预先启动
+- 模型下载需要一定时间和网络带宽
+- 首次构建知识库可能需要较长时间
+
+### 改进方向
+
+- 支持更多文档格式（如PPT、Excel）
+- 添加文档管理功能（删除、更新文档）
+- 支持批量上传文档
+- 添加多语言支持
+- 支持导出问答记录
+- 优化长文档处理能力
+
+## 许可证
+
 MIT License
